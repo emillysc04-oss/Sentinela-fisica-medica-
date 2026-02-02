@@ -1,8 +1,6 @@
-google-api-python-client
+requests
 google-generativeai
 gspread
 oauth2client
 pandas
-requests
-beautifulsoup4
 python-dotenv
