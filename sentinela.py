@@ -1,105 +1,163 @@
 import os
 import json
 import requests
+import smtplib
 import time
+import gspread
+import google.generativeai as genai
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import datetime
 
-# --- A LISTA DE OURO (42 ITENS) ---
+# --- CONFIGURAÇÕES ---
+SERPER_API_KEY = os.getenv("SERPER_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE")
+SENHA_APP = os.getenv("SENHA_APP")
+GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS") # O JSON do robô
+
+# Lista de Sites (Os 42 Guerreiros)
 SITES_ALVO = [
-    # 1. Abrangentes Brasil
     "site:gov.br", "site:edu.br", "site:org.br", "site:b.br",
-    
-    # 2. Rio Grande do Sul e Instituições Focais
     "site:fapergs.rs.gov.br", "site:hcpa.edu.br", "site:ufrgs.br", "site:ufcspa.edu.br",
     "site:afimrs.com.br", "site:sgr.org.br", "site:amrigs.org.br",
-    
-    # 3. Outros Estados (Fomento)
     "site:fapesc.sc.gov.br", "site:fara.pr.gov.br", "site:fapesp.br",
-    
-    # 4. Internacionais (Física Médica & Saúde)
     "site:iaea.org", "site:who.int", "site:nih.gov", "site:europa.eu", "site:nsf.gov",
     "site:aapm.org", "site:estro.org", "site:astro.org", "site:rsna.org",
     "site:iomp.org", "site:efomp.org", "site:snmmi.org",
-    
-    # 5. Educação Global & Preprints
     "site:edu", "site:ac.uk", "site:arxiv.org",
-    
-    # 6. Revistas e Publicações (Call for Papers)
     "site:ieee.org", "site:nature.com", "site:science.org", "site:sciencedirect.com",
     "site:iop.org", "site:frontiersin.org", "site:mdpi.com", "site:wiley.com",
     "site:springer.com", "site:thelancet.com",
-    
-    # 7. Hospitais de Excelência
     "site:einstein.br", "site:hospitalsiriolibanes.org.br", "site:moinhosdevento.org.br"
 ]
 
 def buscar_google_elite():
-    print("🚀 SENTINELA (Modo Varredura Completa - 42 Fontes) INICIADO...\n")
+    """Etapa 1: Busca os links brutos na internet"""
+    print("🚀 1. INICIANDO VARREDURA (SERPER)...")
     
-    api_key = os.getenv("SERPER_API_KEY")
-    if not api_key:
-        print("❌ ERRO CRÍTICO: Chave SERPER_API_KEY não encontrada no GitHub Secrets.")
-        return
-
-    # Termos da busca (o que queremos encontrar nesses sites)
-    # Procuramos por editais, bolsas ou chamadas abertas
     query_base = '(edital OR chamada OR "call for papers" OR bolsa OR grant) ("física médica" OR radioterapia OR "medical physics")'
-    
     url = "https://google.serper.dev/search"
-    headers = {
-        'X-API-KEY': api_key,
-        'Content-Type': 'application/json'
-    }
-
-    total_encontrado = 0
+    headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
     
-    # --- DIVISÃO EM BLOCOS (CHUNKS) ---
-    # O Google não aguenta 42 sites de uma vez. Vamos mandar de 8 em 8.
+    resultados_texto = []
+    
+    # Blocos de 8 para não engasgar
     tamanho_bloco = 8
     blocos = [SITES_ALVO[i:i + tamanho_bloco] for i in range(0, len(SITES_ALVO), tamanho_bloco)]
 
-    print(f"📋 A lista de 42 sites foi dividida em {len(blocos)} rodadas de busca para não travar.\n")
-
-    for i, bloco in enumerate(blocos):
-        # Monta a string: (site:A OR site:B OR site:C)
+    for bloco in blocos:
         filtro_sites = " OR ".join(bloco)
         query_final = f"{query_base} ({filtro_sites})"
+        payload = json.dumps({"q": query_final, "tbs": "qdr:m", "gl": "br"})
         
-        print(f"🔎 Rodada {i+1}/{len(blocos)}: Verificando {len(bloco)} sites...")
-        # print(f"   Sites: {bloco}") # Descomente se quiser ver os sites rodando
-
-        payload = json.dumps({
-            "q": query_final,
-            "num": 5,        # Pega os 5 melhores de cada bloco
-            "tbs": "qdr:m",  # Apenas último mês (m) ou semana (w)
-            "gl": "br"
-        })
-
         try:
             response = requests.request("POST", url, headers=headers, data=payload)
             dados = response.json()
-            
             items = dados.get("organic", [])
-            
-            if items:
-                print(f"   ✅ Encontrei {len(items)} oportunidades neste bloco:")
-                for item in items:
-                    print(f"      📄 {item.get('title')}")
-                    print(f"      🔗 {item.get('link')}")
-                    print(f"      📅 {item.get('date', 'Data não informada')}")
-                    print("      ---")
-                total_encontrado += len(items)
-            else:
-                print("   📭 Nenhuma novidade recente nestes sites.")
-
-            # Pausa rápida para não ser bloqueado por excesso de velocidade
-            time.sleep(1)
-
+            for item in items:
+                linha = f"- Título: {item.get('title')}\n  Link: {item.get('link')}\n  Data/Trecho: {item.get('snippet')}\n"
+                resultados_texto.append(linha)
+            time.sleep(0.5)
         except Exception as e:
-            print(f"❌ Erro na conexão: {e}")
-        
-        print("-" * 30)
+            print(f"❌ Erro num bloco: {e}")
 
-    print(f"\n✨ VARREDURA FINALIZADA. Total de links encontrados: {total_encontrado}")
+    print(f"✅ Busca concluída. {len(resultados_texto)} links coletados.\n")
+    return "\n".join(resultados_texto)
+
+def analisar_com_gemini(texto_bruto):
+    """Etapa 2: Gemini filtra e formata"""
+    print("🧠 2. ACIONANDO INTELIGÊNCIA ARTIFICIAL...")
+    if not texto_bruto: return None
+
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-2.0-flash')
+
+    prompt = f"""
+    Você é um Sentinela de Física Médica. Analise estes resultados de busca:
+    {texto_bruto}
+
+    MISSÃO:
+    1. Ignore notícias velhas ou irrelevantes.
+    2. Selecione APENAS oportunidades reais (editais, bolsas, grants, vagas).
+    3. Crie um HTML para e-mail. Use <h2> para títulos e listas <ul>.
+    4. Se não tiver nada útil, responda apenas "NADA".
+    
+    Comece direto com o HTML (<h2>Relatório...</h2>).
+    """
+
+    try:
+        res = model.generate_content(prompt)
+        texto = res.text.replace("```html", "").replace("```", "")
+        if "NADA" in texto: return None
+        return texto
+    except:
+        return None
+
+def obter_lista_emails():
+    """Etapa Extra: Pega os e-mails da Planilha"""
+    print("📋 Lendo lista de contatos da Planilha Google...")
+    
+    if not GOOGLE_CREDENTIALS:
+        print("⚠️ Sem credenciais da planilha. Usando apenas e-mail do remetente.")
+        return [EMAIL_REMETENTE]
+
+    try:
+        # Conecta na planilha usando o JSON do cofre
+        creds_dict = json.loads(GOOGLE_CREDENTIALS)
+        gc = gspread.service_account_from_dict(creds_dict)
+        
+        # Abre a planilha pelo nome exato
+        sh = gc.open("Sentinela Emails")
+        ws = sh.sheet1
+        
+        # Pega a primeira coluna (assumindo que os emails estão na coluna A)
+        emails = ws.col_values(1)
+        
+        # Limpa cabeçalhos e linhas vazias
+        lista_limpa = [e.strip() for e in emails if "@" in e and "email" not in e.lower()]
+        
+        print(f"✅ Lista carregada! {len(lista_limpa)} destinatários encontrados.")
+        return lista_limpa
+        
+    except Exception as e:
+        print(f"❌ Erro ao ler planilha: {e}")
+        print("   (Verifique se o nome da planilha é 'Sentinela Emails' e se o robô foi convidado)")
+        return [EMAIL_REMETENTE]
+
+def enviar_email(corpo_html, destinatario):
+    """Etapa 3: Dispara o e-mail"""
+    msg = MIMEMultipart()
+    msg['From'] = EMAIL_REMETENTE
+    msg['To'] = destinatario
+    msg['Subject'] = f"☢️ Sentinela Física Médica - {datetime.now().strftime('%d/%m')}"
+    msg.attach(MIMEText(corpo_html, 'html'))
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(EMAIL_REMETENTE, SENHA_APP)
+        server.sendmail(EMAIL_REMETENTE, destinatario, msg.as_string())
+        server.quit()
+        print(f"   📤 Enviado para: {destinatario}")
+    except Exception as e:
+        print(f"   ❌ Falha ao enviar para {destinatario}: {e}")
 
 if __name__ == "__main__":
-    buscar_google_elite()
+    # 1. Busca
+    dados = buscar_google_elite()
+    
+    # 2. Analisa
+    relatorio = analisar_com_gemini(dados)
+    
+    if relatorio:
+        # 3. Pega lista de e-mails
+        lista_vip = obter_lista_emails()
+        
+        # 4. Envia para todos
+        print(f"\n📧 Iniciando disparos para {len(lista_vip)} pessoas...")
+        for email in lista_vip:
+            enviar_email(relatorio, email)
+        print("🏁 FIM DO CICLO.")
+    else:
+        print("📭 Nenhuma oportunidade relevante hoje. E-mails não enviados.")
