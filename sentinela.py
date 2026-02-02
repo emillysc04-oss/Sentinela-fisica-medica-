@@ -8,15 +8,16 @@ import google.generativeai as genai
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+from oauth2client.service_account import ServiceAccountCredentials
 
 # --- CONFIGURAÇÕES ---
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") # Trouxemos de volta!
 EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE")
 SENHA_APP = os.getenv("SENHA_APP")
-GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS") # O JSON do robô
+GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
 
-# Lista de Sites (Os 42 Guerreiros)
+# Lista de Sites (42 Fontes)
 SITES_ALVO = [
     "site:gov.br", "site:edu.br", "site:org.br", "site:b.br",
     "site:fapergs.rs.gov.br", "site:hcpa.edu.br", "site:ufrgs.br", "site:ufcspa.edu.br",
@@ -33,7 +34,7 @@ SITES_ALVO = [
 ]
 
 def buscar_google_elite():
-    """Etapa 1: Busca os links brutos na internet"""
+    """Etapa 1: Busca os links brutos"""
     print("🚀 1. INICIANDO VARREDURA (SERPER)...")
     
     query_base = '(edital OR chamada OR "call for papers" OR bolsa OR grant) ("física médica" OR radioterapia OR "medical physics")'
@@ -49,80 +50,80 @@ def buscar_google_elite():
     for bloco in blocos:
         filtro_sites = " OR ".join(bloco)
         query_final = f"{query_base} ({filtro_sites})"
+        
+        # Pede 10 resultados por bloco (qdr:m = último mês)
         payload = json.dumps({"q": query_final, "tbs": "qdr:m", "gl": "br"})
         
         try:
             response = requests.request("POST", url, headers=headers, data=payload)
             dados = response.json()
             items = dados.get("organic", [])
+            
             for item in items:
-                linha = f"- Título: {item.get('title')}\n  Link: {item.get('link')}\n  Data/Trecho: {item.get('snippet')}\n"
+                # Prepara o texto para o Gemini ler
+                linha = f"- Título: {item.get('title')}\n  Link: {item.get('link')}\n  Snippet: {item.get('snippet')}\n  Data Google: {item.get('date', 'N/A')}\n"
                 resultados_texto.append(linha)
+            
             time.sleep(0.5)
+            
         except Exception as e:
             print(f"❌ Erro num bloco: {e}")
 
-    print(f"✅ Busca concluída. {len(resultados_texto)} links coletados.\n")
+    print(f"✅ Busca concluída. {len(resultados_texto)} itens para análise.\n")
     return "\n".join(resultados_texto)
 
 def analisar_com_gemini(texto_bruto):
-    """Etapa 2: Gemini filtra e formata"""
-    print("🧠 2. ACIONANDO INTELIGÊNCIA ARTIFICIAL...")
+    """Etapa 2: Gemini formata e resume (menos rigoroso)"""
+    print("🧠 2. ACIONANDO GEMINI (Modo Editor)...")
+    
     if not texto_bruto: return None
 
     genai.configure(api_key=GEMINI_API_KEY)
     model = genai.GenerativeModel('gemini-2.0-flash')
 
+    # PROMPT AJUSTADO: Foco em formatação, não em exclusão.
     prompt = f"""
-    Você é um Sentinela de Física Médica. Analise estes resultados de busca:
-    {texto_bruto}
-
-    MISSÃO:
-    1. Ignore notícias velhas ou irrelevantes.
-    2. Selecione APENAS oportunidades reais (editais, bolsas, grants, vagas).
-    3. Crie um HTML para e-mail. Use <h2> para títulos e listas <ul>.
-    4. Se não tiver nada útil, responda apenas "NADA".
+    Você é um Editor de Conteúdo Científico (Física Médica).
+    Abaixo estão resultados de busca vindos de fontes confiáveis.
     
-    Comece direto com o HTML (<h2>Relatório...</h2>).
+    SUA MISSÃO:
+    1. Organize esses links em um e-mail HTML bonito e legível.
+    2. NÃO FILTRE RIGOROSAMENTE. A menos que seja um link quebrado ou totalmente nada a ver (ex: política de cookies), MANTENHA O LINK.
+    3. Resuma o "Snippet" para explicar do que se trata em 1 linha.
+    4. Se houver menção de DATAS ou PRAZOS no texto, destaque em NEGRITO.
+    5. Agrupe, se possível (ex: Nacional vs Internacional).
+    
+    FORMATO DE SAÍDA:
+    Apenas o código HTML (body). Use cores sóbrias (azul escuro para links).
+    Comece com <h2>☢️ Sentinela: Novas Oportunidades</h2>.
+    
+    DADOS PARA PROCESSAR:
+    {texto_bruto}
     """
 
     try:
         res = model.generate_content(prompt)
-        texto = res.text.replace("```html", "").replace("```", "")
-        if "NADA" in texto: return None
-        return texto
-    except:
+        # Limpa marcadores de código se o Gemini colocar
+        return res.text.replace("```html", "").replace("```", "")
+    except Exception as e:
+        print(f"❌ Erro na IA: {e}")
         return None
 
 def obter_lista_emails():
     """Etapa Extra: Pega os e-mails da Planilha"""
-    print("📋 Lendo lista de contatos da Planilha Google...")
-    
+    print("📋 Lendo lista de contatos...")
     if not GOOGLE_CREDENTIALS:
-        print("⚠️ Sem credenciais da planilha. Usando apenas e-mail do remetente.")
         return [EMAIL_REMETENTE]
 
     try:
-        # Conecta na planilha usando o JSON do cofre
         creds_dict = json.loads(GOOGLE_CREDENTIALS)
         gc = gspread.service_account_from_dict(creds_dict)
-        
-        # Abre a planilha pelo nome exato
         sh = gc.open("Sentinela Emails")
         ws = sh.sheet1
-        
-        # Pega a primeira coluna (assumindo que os emails estão na coluna A)
         emails = ws.col_values(1)
-        
-        # Limpa cabeçalhos e linhas vazias
-        lista_limpa = [e.strip() for e in emails if "@" in e and "email" not in e.lower()]
-        
-        print(f"✅ Lista carregada! {len(lista_limpa)} destinatários encontrados.")
-        return lista_limpa
-        
+        return [e.strip() for e in emails if "@" in e and "email" not in e.lower()]
     except Exception as e:
-        print(f"❌ Erro ao ler planilha: {e}")
-        print("   (Verifique se o nome da planilha é 'Sentinela Emails' e se o robô foi convidado)")
+        print(f"❌ Erro na planilha: {e}")
         return [EMAIL_REMETENTE]
 
 def enviar_email(corpo_html, destinatario):
@@ -130,7 +131,7 @@ def enviar_email(corpo_html, destinatario):
     msg = MIMEMultipart()
     msg['From'] = EMAIL_REMETENTE
     msg['To'] = destinatario
-    msg['Subject'] = f"☢️ Sentinela Física Médica - {datetime.now().strftime('%d/%m')}"
+    msg['Subject'] = f"Sentinela Física Médica - {datetime.now().strftime('%d/%m')}"
     msg.attach(MIMEText(corpo_html, 'html'))
 
     try:
@@ -147,17 +148,17 @@ if __name__ == "__main__":
     # 1. Busca
     dados = buscar_google_elite()
     
-    # 2. Analisa
+    # 2. Analisa (com IA suave)
     relatorio = analisar_com_gemini(dados)
     
     if relatorio:
-        # 3. Pega lista de e-mails
+        # 3. Pega lista
         lista_vip = obter_lista_emails()
         
-        # 4. Envia para todos
-        print(f"\n📧 Iniciando disparos para {len(lista_vip)} pessoas...")
+        # 4. Envia
+        print(f"\n📧 Enviando para {len(lista_vip)} pessoas...")
         for email in lista_vip:
             enviar_email(relatorio, email)
-        print("🏁 FIM DO CICLO.")
+        print("🏁 FIM.")
     else:
-        print("📭 Nenhuma oportunidade relevante hoje. E-mails não enviados.")
+        print("📭 Nada encontrado ou erro na IA.")
