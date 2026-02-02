@@ -1,10 +1,12 @@
-name: Teste de Conexão
+name: Rodar Sentinela
 
 on: 
-  workflow_dispatch:
+  workflow_dispatch:      # Botão manual
+  schedule:
+    - cron: '0 10 * * 1'  # Roda toda segunda-feira às 10h da manhã (UTC)
 
 jobs:
-  verificar-google:
+  executar:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,7 +21,11 @@ jobs:
       - name: 📦 Instalar Dependências
         run: pip install -r requirements.txt
 
-      - name: 🤖 Rodar Sentinela (Modo Elite)
+      - name: 🤖 Rodar Sentinela
         env:
           SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          EMAIL_REMETENTE: ${{ secrets.EMAIL_REMETENTE }}
+          SENHA_APP: ${{ secrets.SENHA_APP }}
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
         run: python sentinela.py
