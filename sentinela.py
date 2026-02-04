@@ -4,14 +4,15 @@ import requests
 import smtplib
 import time
 import gspread
-from google import genai # Nova biblioteca
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+from oauth2client.service_account import ServiceAccountCredentials
 
 # --- CONFIGURAÇÕES ---
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# Limpeza de segurança
 EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE", "").strip()
 SENHA_APP = os.getenv("SENHA_APP", "").strip()
 GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
@@ -42,7 +43,6 @@ def buscar_google_elite():
     
     resultados_texto = []
     
-    # Blocos de 8
     tamanho_bloco = 8
     blocos = [SITES_ALVO[i:i + tamanho_bloco] for i in range(0, len(SITES_ALVO), tamanho_bloco)]
 
@@ -93,37 +93,47 @@ def gerar_html_manual(texto_bruto):
     return html
 
 def analisar_com_gemini(texto_bruto):
-    """Etapa 2: Gemini (NOVA BIBLIOTECA) formata e resume"""
-    print("🧠 2. ACIONANDO GEMINI (SDK NOVO)...")
+    """Etapa 2: Gemini via HTTP REQUEST (Sem biblioteca bugada)"""
+    print("🧠 2. ACIONANDO GEMINI (Conexão Direta)...")
     
     if not texto_bruto: return None
 
-    try:
-        # --- AQUI ESTÁ A MUDANÇA PARA A NOVA BIBLIOTECA ---
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        
-        prompt = f"""
-        Você é um Editor de Conteúdo Científico (Física Médica).
-        Organize estes links em um e-mail HTML limpo.
-        
-        DADOS:
-        {texto_bruto}
-        
-        SAÍDA:
-        Apenas código HTML (body). Título <h2>Sentinela: Oportunidades</h2>.
-        Use listas <ul>. Destaque prazos.
-        """
+    # URL direta da API do Google (bypassa a biblioteca Python)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    
+    prompt_text = f"""
+    Você é um Editor de Conteúdo Científico (Física Médica).
+    Organize estes links em um e-mail HTML limpo.
+    
+    DADOS:
+    {texto_bruto}
+    
+    SAÍDA:
+    Apenas código HTML (body). Título <h2>Sentinela: Oportunidades</h2>.
+    Use listas <ul>. Destaque prazos.
+    """
 
-        # Usando o modelo Flash no novo sistema
-        response = client.models.generate_content(
-            model='gemini-1.5-flash',
-            contents=prompt
-        )
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt_text}]
+        }]
+    }
+
+    try:
+        # Faz o envio direto
+        response = requests.post(url, json=payload, headers={'Content-Type': 'application/json'})
         
-        return response.text.replace("```html", "").replace("```", "")
+        if response.status_code == 200:
+            resultado_json = response.json()
+            # Navega no JSON para achar o texto
+            texto_final = resultado_json['candidates'][0]['content']['parts'][0]['text']
+            return texto_final.replace("```html", "").replace("```", "")
+        else:
+            print(f"❌ Erro HTTP na IA: {response.status_code} - {response.text}")
+            return gerar_html_manual(texto_bruto)
 
     except Exception as e:
-        print(f"❌ Erro na IA: {e}")
+        print(f"❌ Erro na conexão IA: {e}")
         return gerar_html_manual(texto_bruto)
 
 def obter_lista_emails():
