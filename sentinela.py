@@ -4,7 +4,7 @@ import requests
 import smtplib
 import time
 import gspread
-import google.generativeai as genai
+from google import genai  # <--- BIBLIOTECA NOVA E OFICIAL
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
@@ -12,7 +12,6 @@ from datetime import datetime
 # --- CONFIGURAÇÕES ---
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# Limpeza de segurança para evitar erro 535
 EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE", "").strip()
 SENHA_APP = os.getenv("SENHA_APP", "").strip()
 GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
@@ -34,7 +33,7 @@ SITES_ALVO = [
 ]
 
 def buscar_google_elite():
-    """Etapa 1: Busca os links brutos (Igual ao que funcionou)"""
+    """Etapa 1: Busca os links brutos"""
     print("🚀 1. INICIANDO VARREDURA (SERPER)...")
     
     query_base = '(edital OR chamada OR "call for papers" OR bolsa OR grant) ("física médica" OR radioterapia OR "medical physics")'
@@ -59,7 +58,7 @@ def buscar_google_elite():
                 linha = f"- Título: {item.get('title')}\n  Link: {item.get('link')}\n  Snippet: {item.get('snippet')}\n  Data: {item.get('date', 'N/A')}\n"
                 resultados_texto.append(linha)
             
-            # PAUSA que você pediu para evitar bloqueios
+            # MANTENDO A SUA PAUSA ESTRATÉGICA
             time.sleep(1.0)
             
         except Exception as e:
@@ -69,7 +68,7 @@ def buscar_google_elite():
     return "\n".join(resultados_texto)
 
 def gerar_html_manual(texto_bruto):
-    """PARAQUEDAS: Caso a IA falhe, garante o envio"""
+    """PARAQUEDAS: Backup caso a IA falhe"""
     print("⚠️ Usando formatador manual de emergência...")
     if not texto_bruto: return "<p>Nenhum resultado encontrado.</p>"
     
@@ -91,16 +90,14 @@ def gerar_html_manual(texto_bruto):
     return html
 
 def analisar_com_gemini(texto_bruto):
-    """Etapa 2: Gemini 1.5 Flash (A configuração que você quer)"""
-    print("🧠 2. ACIONANDO GEMINI 1.5 FLASH...")
+    """Etapa 2: Gemini 1.5 Flash (USANDO A NOVA BIBLIOTECA)"""
+    print("🧠 2. ACIONANDO GEMINI 1.5 FLASH (SDK NOVO)...")
     
     if not texto_bruto: return None
 
     try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        
-        # Usando o modelo FLASH que você quer
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # --- AQUI É A MÁGICA: SINTAXE NOVA DO GOOGLE ---
+        client = genai.Client(api_key=GEMINI_API_KEY)
 
         prompt = f"""
         Você é um Editor de Conteúdo Científico (Física Médica).
@@ -116,7 +113,12 @@ def analisar_com_gemini(texto_bruto):
         Destaque prazos em negrito.
         """
 
-        response = model.generate_content(prompt)
+        # Comando atualizado que aceita o Flash sem erro 404
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt
+        )
+        
         return response.text.replace("```html", "").replace("```", "")
 
     except Exception as e:
@@ -139,7 +141,6 @@ def obter_lista_emails():
         sh = gc.open("Sentinela Emails")
         ws = sh.sheet1
         
-        # Lendo Coluna 3
         emails_raw = ws.col_values(3)
         
         for e in emails_raw:
