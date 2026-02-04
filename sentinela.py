@@ -12,7 +12,6 @@ from oauth2client.service_account import ServiceAccountCredentials
 # --- CONFIGURAÇÕES ---
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# Limpeza de segurança
 EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE", "").strip()
 SENHA_APP = os.getenv("SENHA_APP", "").strip()
 GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
@@ -93,13 +92,13 @@ def gerar_html_manual(texto_bruto):
     return html
 
 def analisar_com_gemini(texto_bruto):
-    """Etapa 2: Gemini via HTTP REQUEST (Sem biblioteca bugada)"""
-    print("🧠 2. ACIONANDO GEMINI (Conexão Direta)...")
+    """Etapa 2: Gemini via HTTP REQUEST (Modelo PRO)"""
+    print("🧠 2. ACIONANDO GEMINI (Conexão Direta - PRO)...")
     
     if not texto_bruto: return None
 
-    # URL direta da API do Google (bypassa a biblioteca Python)
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    # --- TROQUEI PARA 'gemini-pro' QUE É O MODELO UNIVERSAL ---
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_API_KEY}"
     
     prompt_text = f"""
     Você é um Editor de Conteúdo Científico (Física Médica).
@@ -120,12 +119,10 @@ def analisar_com_gemini(texto_bruto):
     }
 
     try:
-        # Faz o envio direto
         response = requests.post(url, json=payload, headers={'Content-Type': 'application/json'})
         
         if response.status_code == 200:
             resultado_json = response.json()
-            # Navega no JSON para achar o texto
             texto_final = resultado_json['candidates'][0]['content']['parts'][0]['text']
             return texto_final.replace("```html", "").replace("```", "")
         else:
