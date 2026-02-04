@@ -1,5 +1,5 @@
 requests
-google-generativeai>=0.8.3
+google-genai
 gspread
 oauth2client
 pandas
