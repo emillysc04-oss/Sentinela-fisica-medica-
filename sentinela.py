@@ -4,7 +4,7 @@ import requests
 import smtplib
 import time
 import gspread
-import google.generativeai as genai
+from google import genai # Nova biblioteca
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
@@ -12,7 +12,6 @@ from datetime import datetime
 # --- CONFIGURAÇÕES ---
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# .strip() garante que não haja espaços invisíveis na senha
 EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE", "").strip()
 SENHA_APP = os.getenv("SENHA_APP", "").strip()
 GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
@@ -43,7 +42,7 @@ def buscar_google_elite():
     
     resultados_texto = []
     
-    # Blocos de 8 para não engasgar
+    # Blocos de 8
     tamanho_bloco = 8
     blocos = [SITES_ALVO[i:i + tamanho_bloco] for i in range(0, len(SITES_ALVO), tamanho_bloco)]
 
@@ -94,31 +93,35 @@ def gerar_html_manual(texto_bruto):
     return html
 
 def analisar_com_gemini(texto_bruto):
-    """Etapa 2: Gemini PRO formata e resume"""
-    print("🧠 2. ACIONANDO GEMINI PRO...")
+    """Etapa 2: Gemini (NOVA BIBLIOTECA) formata e resume"""
+    print("🧠 2. ACIONANDO GEMINI (SDK NOVO)...")
     
     if not texto_bruto: return None
 
-    genai.configure(api_key=GEMINI_API_KEY)
-    
-    # --- VOLTANDO PARA O CLÁSSICO (Funciona sempre) ---
-    model = genai.GenerativeModel('gemini-pro')
-
-    prompt = f"""
-    Você é um Editor de Conteúdo Científico (Física Médica).
-    Organize estes links em um e-mail HTML limpo.
-    
-    DADOS:
-    {texto_bruto}
-    
-    SAÍDA:
-    Apenas código HTML (body). Título <h2>Sentinela: Oportunidades</h2>.
-    Use listas <ul>. Destaque prazos.
-    """
-
     try:
-        res = model.generate_content(prompt)
-        return res.text.replace("```html", "").replace("```", "")
+        # --- AQUI ESTÁ A MUDANÇA PARA A NOVA BIBLIOTECA ---
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        
+        prompt = f"""
+        Você é um Editor de Conteúdo Científico (Física Médica).
+        Organize estes links em um e-mail HTML limpo.
+        
+        DADOS:
+        {texto_bruto}
+        
+        SAÍDA:
+        Apenas código HTML (body). Título <h2>Sentinela: Oportunidades</h2>.
+        Use listas <ul>. Destaque prazos.
+        """
+
+        # Usando o modelo Flash no novo sistema
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt
+        )
+        
+        return response.text.replace("```html", "").replace("```", "")
+
     except Exception as e:
         print(f"❌ Erro na IA: {e}")
         return gerar_html_manual(texto_bruto)
@@ -139,7 +142,6 @@ def obter_lista_emails():
         sh = gc.open("Sentinela Emails")
         ws = sh.sheet1
         
-        # Leitura da Coluna 3
         emails_raw = ws.col_values(3)
         
         for e in emails_raw:
@@ -168,7 +170,6 @@ def enviar_email(corpo_html, destinatario):
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        # Aqui usamos a senha limpa
         server.login(EMAIL_REMETENTE, SENHA_APP)
         server.sendmail(EMAIL_REMETENTE, destinatario, msg.as_string())
         server.quit()
