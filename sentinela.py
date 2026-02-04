@@ -10,7 +10,7 @@ from datetime import datetime
 
 # --- CONFIGURAÇÕES ---
 # 👇 MANTENHA SUA CHAVE AQUI PARA O TESTE FINAL 👇
-GEMINI_API_KEY = "COLE_SUA_CHAVE_AQUI"
+GEMINI_API_KEY = "AIzaSyC5uiHmRvQGf00Qb34qRII2XwuunBRyQ0M"
 
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE", "").strip()
