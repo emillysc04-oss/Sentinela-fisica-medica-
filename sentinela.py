@@ -12,8 +12,7 @@ from datetime import datetime
 # --- CONFIGURAÇÕES ---
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-# .strip() remove espaços invisíveis que causam erro 535
+# Remove espaços invisíveis para evitar erro 535
 EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE", "").strip()
 SENHA_APP = os.getenv("SENHA_APP", "").strip()
 GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
@@ -95,15 +94,15 @@ def gerar_html_manual(texto_bruto):
     return html
 
 def analisar_com_gemini(texto_bruto):
-    """Etapa 2: Gemini 1.5 formata e resume"""
-    print("🧠 2. ACIONANDO GEMINI 1.5 FLASH...")
+    """Etapa 2: Gemini PRO formata e resume"""
+    print("🧠 2. ACIONANDO GEMINI PRO...")
     
     if not texto_bruto: return None
 
     genai.configure(api_key=GEMINI_API_KEY)
     
-    # --- MODELO CORRETO PARA A BIBLIOTECA NOVA ---
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # --- VOLTAMOS PARA O PRO (UNIVERSAL) ---
+    model = genai.GenerativeModel('gemini-pro')
 
     prompt = f"""
     Você é um Editor de Conteúdo Científico (Física Médica).
@@ -170,7 +169,6 @@ def enviar_email(corpo_html, destinatario):
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        # Aqui usamos a senha limpa (sem espaços)
         server.login(EMAIL_REMETENTE, SENHA_APP)
         server.sendmail(EMAIL_REMETENTE, destinatario, msg.as_string())
         server.quit()
