@@ -1,40 +1,183 @@
-import requests
+import os
 import json
+import requests
+import smtplib
+import time
+import gspread
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import datetime
 
-# COLE SUA CHAVE AQUI DENTRO
-CHAVE = "AIzaSyC5uiHmRvQGf00Qb34qRII2XwuunBRyQ0M"
+# --- CONFIGURAÇÕES ---
+# 👇 MANTENHA SUA CHAVE AQUI PARA O TESTE FINAL 👇
+GEMINI_API_KEY = "COLE_SUA_CHAVE_AQUI"
 
-print(f"🔍 Consultando 'cardápio' de modelos para a chave: {CHAVE[:5]}...\n")
+SERPER_API_KEY = os.getenv("SERPER_API_KEY")
+EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE", "").strip()
+SENHA_APP = os.getenv("SENHA_APP", "").strip()
+GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
 
-url = f"https://generativelanguage.googleapis.com/v1beta/models?key={CHAVE}"
+# Lista de Sites
+SITES_ALVO = [
+    "site:gov.br", "site:edu.br", "site:org.br", "site:b.br",
+    "site:fapergs.rs.gov.br", "site:hcpa.edu.br", "site:ufrgs.br", "site:ufcspa.edu.br",
+    "site:afimrs.com.br", "site:sgr.org.br", "site:amrigs.org.br",
+    "site:fapesc.sc.gov.br", "site:fara.pr.gov.br", "site:fapesp.br",
+    "site:iaea.org", "site:who.int", "site:nih.gov", "site:europa.eu", "site:nsf.gov",
+    "site:aapm.org", "site:estro.org", "site:astro.org", "site:rsna.org",
+    "site:iomp.org", "site:efomp.org", "site:snmmi.org",
+    "site:edu", "site:ac.uk", "site:arxiv.org",
+    "site:ieee.org", "site:nature.com", "site:science.org", "site:sciencedirect.com",
+    "site:iop.org", "site:frontiersin.org", "site:mdpi.com", "site:wiley.com",
+    "site:springer.com", "site:thelancet.com",
+    "site:einstein.br", "site:hospitalsiriolibanes.org.br", "site:moinhosdevento.org.br"
+]
 
-try:
-    response = requests.get(url)
+def buscar_google_elite():
+    """Etapa 1: Busca os links brutos"""
+    print("🚀 1. INICIANDO VARREDURA (SERPER)...")
     
-    if response.status_code == 200:
-        dados = response.json()
-        modelos = dados.get('models', [])
+    query_base = '(edital OR chamada OR "call for papers" OR bolsa OR grant) ("física médica" OR radioterapia OR "medical physics")'
+    url = "https://google.serper.dev/search"
+    headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
+    
+    resultados_texto = []
+    tamanho_bloco = 8
+    blocos = [SITES_ALVO[i:i + tamanho_bloco] for i in range(0, len(SITES_ALVO), tamanho_bloco)]
+
+    for bloco in blocos:
+        filtro_sites = " OR ".join(bloco)
+        query_final = f"{query_base} ({filtro_sites})"
+        payload = json.dumps({"q": query_final, "tbs": "qdr:m", "gl": "br"})
         
-        if not modelos:
-            print("❌ LISTA VAZIA! A API está ativada, mas nenhum modelo foi liberado para essa conta.")
-            print("👉 Solução: Você precisa ativar o 'Google AI Studio' ou aceitar os termos de uso na conta.")
+        try:
+            response = requests.request("POST", url, headers=headers, data=payload)
+            dados = response.json()
+            items = dados.get("organic", [])
+            for item in items:
+                linha = f"- Título: {item.get('title')}\n  Link: {item.get('link')}\n  Snippet: {item.get('snippet')}\n  Data: {item.get('date', 'N/A')}\n"
+                resultados_texto.append(linha)
+            time.sleep(1.0)
+        except Exception as e:
+            print(f"❌ Erro num bloco: {e}")
+
+    print(f"✅ Busca concluída. {len(resultados_texto)} itens para análise.\n")
+    return "\n".join(resultados_texto)
+
+def gerar_html_manual(texto_bruto):
+    """PARAQUEDAS: Backup"""
+    print("⚠️ Usando formatador manual de emergência...")
+    if not texto_bruto: return "<p>Nenhum resultado encontrado.</p>"
+    linhas = texto_bruto.split("- Título: ")
+    html = "<h2>☢️ Sentinela: Relatório (Backup)</h2><p>Links encontrados:</p><ul>"
+    for item in linhas:
+        if "Link: " in item:
+            partes = item.split("\n")
+            titulo = partes[0].strip()
+            link = ""
+            snippet = ""
+            for p in partes:
+                if "Link: " in p: link = p.replace("Link: ", "").strip()
+                if "Snippet: " in p: snippet = p.replace("Snippet: ", "").strip()
+            if link:
+                html += f"<li style='margin-bottom:10px;'><a href='{link}'><b>{titulo}</b></a><br><small>{snippet}</small></li>"
+    html += "</ul>"
+    return html
+
+def analisar_com_gemini(texto_bruto):
+    """Etapa 2: Inteligência Artificial (Modelo 2.5 Flash)"""
+    print("🧠 2. ACIONANDO GEMINI 2.5 FLASH...")
+    
+    if not texto_bruto: return None
+
+    # --- AQUI ESTÁ A MUDANÇA MÁGICA ---
+    # Usando o modelo que vimos na sua lista!
+    modelo = "gemini-2.5-flash"
+    
+    prompt = f"""
+    Você é um Editor de Conteúdo Científico (Física Médica).
+    Analise a lista de links abaixo e crie um e-mail HTML limpo e profissional.
+    
+    DADOS: {texto_bruto}
+    
+    SAÍDA: 
+    Apenas código HTML (body). 
+    Título: <h2>Sentinela: Novas Oportunidades</h2>.
+    Selecione os itens mais relevantes (editais, bolsas, eventos).
+    Use listas <ul> com ícones se possível.
+    Destaque prazos em negrito.
+    """
+    
+    # URL Direta para o modelo 2.5
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent?key={GEMINI_API_KEY}"
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    headers = {'Content-Type': 'application/json'}
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        
+        if response.status_code == 200:
+            print("   ✅ SUCESSO! A IA gerou o resumo.")
+            resultado = response.json()
+            texto_ia = resultado['candidates'][0]['content']['parts'][0]['text']
+            return texto_ia.replace("```html", "").replace("```", "")
         else:
-            print("✅ SUCESSO! Modelos disponíveis para você:")
-            print("="*40)
-            encontrou_algum = False
-            for m in modelos:
-                # Filtra só os que geram texto (ignora os de apenas visão/embedding)
-                if "generateContent" in m.get('supportedGenerationMethods', []):
-                    print(f"🟢 {m['name']}")
-                    encontrou_algum = True
-            
-            if not encontrou_algum:
-                print("⚠️ AVISO: Existem modelos, mas nenhum serve para gerar texto (chat).")
-            print("="*40)
+            print(f"   ❌ Erro na API ({response.status_code}): {response.text}")
+            return gerar_html_manual(texto_bruto)
 
+    except Exception as e:
+        print(f"   ❌ Erro de conexão: {e}")
+        return gerar_html_manual(texto_bruto)
+
+def obter_lista_emails():
+    """Etapa Extra: Pega os e-mails da Planilha"""
+    print("📋 Lendo lista de contatos da COLUNA 3...")
+    lista_final = []
+    if EMAIL_REMETENTE: lista_final.append(EMAIL_REMETENTE)
+    if not GOOGLE_CREDENTIALS: return lista_final
+    try:
+        creds_dict = json.loads(GOOGLE_CREDENTIALS)
+        gc = gspread.service_account_from_dict(creds_dict)
+        sh = gc.open("Sentinela Emails")
+        ws = sh.sheet1
+        emails_raw = ws.col_values(3)
+        for e in emails_raw:
+            email_limpo = e.strip()
+            if "@" in email_limpo and "email" not in email_limpo.lower():
+                if email_limpo not in lista_final:
+                    lista_final.append(email_limpo)
+        print(f"✅ Destinatários válidos: {len(lista_final)}")
+        return lista_final
+    except Exception as e:
+        print(f"❌ Erro na planilha: {e}")
+        return lista_final
+
+def enviar_email(corpo_html, destinatario):
+    """Etapa 3: Dispara o e-mail"""
+    if not destinatario: return
+    msg = MIMEMultipart()
+    msg['From'] = EMAIL_REMETENTE
+    msg['To'] = destinatario
+    msg['Subject'] = f"Sentinela Física Médica - {datetime.now().strftime('%d/%m')}"
+    msg.attach(MIMEText(corpo_html, 'html'))
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(EMAIL_REMETENTE, SENHA_APP)
+        server.sendmail(EMAIL_REMETENTE, destinatario, msg.as_string())
+        server.quit()
+        print(f"   📤 Enviado para: {destinatario}")
+    except Exception as e:
+        print(f"   ❌ Falha ao enviar para {destinatario}: {e}")
+
+if __name__ == "__main__":
+    dados = buscar_google_elite()
+    relatorio = analisar_com_gemini(dados)
+    if relatorio:
+        lista_vip = obter_lista_emails()
+        print(f"\n📧 Iniciando disparos para {len(lista_vip)} pessoas...")
+        for email in lista_vip:
+            enviar_email(relatorio, email)
+        print("🏁 FIM.")
     else:
-        print(f"❌ ERRO AO LISTAR ({response.status_code}):")
-        print(response.text)
-
-except Exception as e:
-    print(f"❌ ERRO DE CONEXÃO: {e}")
+        print("📭 Nada encontrado.")
