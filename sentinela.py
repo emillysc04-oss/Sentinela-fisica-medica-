@@ -12,7 +12,7 @@ from datetime import datetime
 # --- CONFIGURAÇÕES ---
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# .strip() garante que não haja espaços invisíveis na senha
+# .strip() remove espaços invisíveis para evitar erro 535
 EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE", "").strip()
 SENHA_APP = os.getenv("SENHA_APP", "").strip()
 GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
@@ -101,7 +101,7 @@ def analisar_com_gemini(texto_bruto):
 
     genai.configure(api_key=GEMINI_API_KEY)
     
-    # Modelo mais atual e rápido
+    # Modelo 1.5 Flash (precisa da lib nova)
     model = genai.GenerativeModel('gemini-1.5-flash')
 
     prompt = f"""
@@ -139,8 +139,9 @@ def obter_lista_emails():
         sh = gc.open("Sentinela Emails")
         ws = sh.sheet1
         
-        # Leitura da Coluna 3
+        # --- LENDO COLUNA 3 ---
         emails_raw = ws.col_values(3)
+        print(f"DEBUG - Leitura: {emails_raw}") 
         
         for e in emails_raw:
             email_limpo = e.strip()
@@ -168,6 +169,7 @@ def enviar_email(corpo_html, destinatario):
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
+        # Aqui usamos a senha limpa
         server.login(EMAIL_REMETENTE, SENHA_APP)
         server.sendmail(EMAIL_REMETENTE, destinatario, msg.as_string())
         server.quit()
