@@ -9,7 +9,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
 # --- CONFIGURAÇÕES ---
-# ✅ MODO SEGURO: Puxa a chave dos Secrets do GitHub
+# ✅ MODO SEGURO
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
@@ -68,93 +68,85 @@ def buscar_google_elite():
     return "\n".join(resultados_texto)
 
 def aplicar_template_profissional(conteudo_ia):
-    """Envelopa o texto no Modo Dark Float (Cartões flutuantes sem fundo de caixa)"""
+    """Envelopa o texto: Clean & Minimalist (Sem fundos escuros)"""
     
     if not conteudo_ia:
         conteudo_ia = "<p style='text-align:center; color:#777;'>Nenhuma oportunidade relevante encontrada hoje.</p>"
 
     estilos_css = """
-        /* Fundo Geral Escuro */
-        body { margin: 0; padding: 0; background-color: #121212; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        /* Fundo Geral: Usa a cor padrão do cliente de e-mail (geralmente branco ou adapta ao tema) */
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         
-        /* Container Transparente (O Segredo!) */
-        /* Removemos cor de fundo, borda e sombra da caixa principal */
+        /* CONTAINER: Totalmente invisível */
         .container { 
             max-width: 600px; 
             margin: 0 auto; 
-            background-color: transparent; 
-            color: #e0e0e0; 
             padding: 10px;
         }
         
-        /* Barra Decorativa (Opcional, pode remover se quiser mais limpo ainda) */
-        .header-bar { height: 4px; background: linear-gradient(90deg, #004d40 0%, #009688 50%, #80cbc4 100%); width: 100%; border-radius: 4px; margin-bottom: 20px;}
-        
-        /* Cabeçalho */
+        /* CABEÇALHO */
         .header-content { text-align: center; margin-bottom: 30px; }
         .logo { max-width: 180px; margin-bottom: 10px; }
-        .title { color: #4db6ac; margin: 0; font-size: 24px; font-weight: 300; letter-spacing: 1px; text-transform: uppercase; }
-        .subtitle { color: #80cbc4; font-size: 12px; margin-top: 5px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; }
+        .title { color: #009688; margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+        .subtitle { color: #555; font-size: 13px; margin-top: 5px; letter-spacing: 1px; text-transform: uppercase; }
         
-        .content { line-height: 1.6; }
+        /* Barra de destaque fina */
+        .header-bar { height: 3px; background: linear-gradient(90deg, #004d40 0%, #009688 50%, #80cbc4 100%); width: 100%; border-radius: 4px; margin-bottom: 30px;}
         
-        /* Títulos de Seção (Flutuantes) */
+        /* Títulos de Seção */
         h3 { 
-            color: #80cbc4; 
-            margin-top: 30px; 
+            color: #00796b; 
+            margin-top: 40px; 
             font-size: 18px; 
-            border-bottom: 1px solid #333; 
+            border-bottom: 2px solid #e0e0e0; 
             padding-bottom: 5px; 
             text-transform: uppercase;
-            letter-spacing: 1px;
         }
         
         ul { list-style-type: none; padding: 0; margin: 0; }
         
-        /* CARTÕES (Aqui está o design que você gostou) */
+        /* CARTÕES MINIMALISTAS (Sem fundo escuro) */
         li { 
             margin-bottom: 20px; 
-            background-color: #1e1e1e; /* Fundo do cartão */
-            padding: 20px; 
-            border-radius: 8px; /* Cantos arredondados */
-            border: 1px solid #333; /* Borda sutil */
-            border-left: 4px solid #009688; /* Detalhe Verde HCPA */
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3); /* Sombra para dar profundidade */
+            background-color: transparent; /* FUNDO TRANSPARENTE */
+            padding: 15px; 
+            border: 1px solid #e0e0e0; /* Borda cinza fininha para delimitar */
+            border-left: 5px solid #009688; /* A Borda Verde que você gostou */
+            border-radius: 4px;
         }
         
-        /* Título do Item */
-        strong { color: #ffffff; font-size: 16px; display: block; margin-bottom: 6px; }
+        /* Texto dentro do cartão (Escuro para leitura) */
+        strong { color: #004d40; font-size: 16px; display: block; margin-bottom: 6px; }
+        .resumo { color: #555555; font-size: 14px; display: block; margin-bottom: 12px; line-height: 1.4; }
         
-        /* Resumo */
-        .resumo { color: #b0bec5; font-size: 14px; display: block; margin-bottom: 12px; line-height: 1.4; }
-        
-        /* Prazo (Destaque) */
+        /* Prazo (Destaque Clean) */
         .prazo { 
-            color: #ffab91; 
-            font-size: 11px; 
+            color: #d84315; /* Laranja escuro */
+            font-size: 12px; 
             font-weight: bold; 
             text-transform: uppercase; 
-            background-color: #3e2723;
+            background-color: #fbe9e7; /* Fundo pêssego bem clarinho */
             padding: 4px 8px;
             border-radius: 4px;
             display: inline-block;
         }
         
-        /* Botão/Link */
+        /* Botão Acessar */
         a { 
-            color: #4db6ac; 
+            background-color: #009688;
+            color: #ffffff !important;
             text-decoration: none; 
             font-weight: bold; 
             font-size: 12px; 
             float: right; 
-            border: 1px solid #009688;
-            padding: 4px 10px;
+            padding: 5px 12px;
             border-radius: 4px;
-            margin-top: -2px;
+            margin-top: -5px;
         }
-        a:hover { background-color: #009688; color: #fff !important; }
+        a:hover { background-color: #00796b; }
         
-        .footer { padding: 30px; text-align: center; font-size: 11px; color: #555; margin-top: 40px; }
+        /* RODAPÉ */
+        .footer { padding: 30px; text-align: center; font-size: 11px; color: #888; margin-top: 40px; border-top: 1px solid #eee; }
     """
 
     html_template = f"""
@@ -167,13 +159,12 @@ def aplicar_template_profissional(conteudo_ia):
     </head>
     <body>
         <div class="container">
-            <div class="header-bar"></div>
-            
             <div class="header-content">
                 <img src="{LOGO_URL}" alt="HCPA" class="logo">
                 <h1 class="title">Sistema Sentinela</h1>
                 <div class="subtitle">Serviço de Física Médica e Radioproteção</div>
             </div>
+            <div class="header-bar"></div>
             
             <div class="content">
                 {conteudo_ia}
@@ -227,7 +218,7 @@ def analisar_com_gemini(texto_bruto):
     
     Use esta estrutura para CADA item:
     <li>
-        <a href="LINK_AQUI">ACESSAR</a>
+        <a href="LINK_AQUI">ACESSAR ➜</a>
         <strong>TÍTULO_DA_OPORTUNIDADE</strong>
         <span class="resumo">Resumo: (1 linha explicando o objetivo).</span>
         <br>
@@ -245,3 +236,86 @@ def analisar_com_gemini(texto_bruto):
     headers = {'Content-Type': 'application/json'}
 
     try:
+        response = requests.post(url, json=payload, headers=headers)
+        
+        if response.status_code == 200:
+            print("   ✅ SUCESSO! A IA gerou o conteúdo.")
+            resultado = response.json()
+            texto_cru_ia = resultado['candidates'][0]['content']['parts'][0]['text']
+            
+            # Limpa marcadores
+            texto_limpo = texto_cru_ia.replace("```html", "").replace("```", "")
+            
+            # Aplica o layout
+            return aplicar_template_profissional(texto_limpo)
+        else:
+            print(f"   ❌ Erro na API ({response.status_code}): {response.text}")
+            return gerar_html_manual(texto_bruto)
+
+    except Exception as e:
+        print(f"   ❌ Erro de conexão: {e}")
+        return gerar_html_manual(texto_bruto)
+
+def obter_lista_emails():
+    """Etapa Extra: Pega os e-mails da Planilha"""
+    print("📋 Lendo lista de contatos da COLUNA 3...")
+    
+    lista_final = []
+    if EMAIL_REMETENTE: lista_final.append(EMAIL_REMETENTE)
+    
+    if not GOOGLE_CREDENTIALS: 
+        return lista_final
+
+    try:
+        creds_dict = json.loads(GOOGLE_CREDENTIALS)
+        gc = gspread.service_account_from_dict(creds_dict)
+        sh = gc.open("Sentinela Emails")
+        ws = sh.sheet1
+        
+        emails_raw = ws.col_values(3)
+        
+        for e in emails_raw:
+            email_limpo = e.strip()
+            if "@" in email_limpo and "email" not in email_limpo.lower():
+                if email_limpo not in lista_final:
+                    lista_final.append(email_limpo)
+        
+        print(f"✅ Destinatários válidos: {len(lista_final)}")
+        return lista_final
+        
+    except Exception as e:
+        print(f"❌ Erro na planilha: {e}")
+        return lista_final
+
+def enviar_email(corpo_html, destinatario):
+    """Etapa 3: Dispara o e-mail"""
+    if not destinatario: return
+
+    msg = MIMEMultipart()
+    msg['From'] = EMAIL_REMETENTE
+    msg['To'] = destinatario
+    msg['Subject'] = f"Sentinela Física Médica - {datetime.now().strftime('%d/%m')}"
+    msg.attach(MIMEText(corpo_html, 'html'))
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(EMAIL_REMETENTE, SENHA_APP)
+        server.sendmail(EMAIL_REMETENTE, destinatario, msg.as_string())
+        server.quit()
+        print(f"   📤 Enviado para: {destinatario}")
+    except Exception as e:
+        print(f"   ❌ Falha ao enviar para {destinatario}: {e}")
+
+if __name__ == "__main__":
+    dados = buscar_google_elite()
+    relatorio = analisar_com_gemini(dados)
+    
+    if relatorio:
+        lista_vip = obter_lista_emails()
+        print(f"\n📧 Iniciando disparos para {len(lista_vip)} pessoas...")
+        for email in lista_vip:
+            enviar_email(relatorio, email)
+        print("🏁 FIM.")
+    else:
+        print("📭 Nada encontrado.")
