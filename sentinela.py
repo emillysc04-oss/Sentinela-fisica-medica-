@@ -2,7 +2,7 @@ import requests
 import json
 
 # COLE SUA CHAVE AQUI DENTRO
-CHAVE = "COLE_SUA_CHAVE_AQUI"
+CHAVE = "AIzaSyC5uiHmRvQGf00Qb34qRII2XwuunBRyQ0M"
 
 print(f"🔍 Consultando 'cardápio' de modelos para a chave: {CHAVE[:5]}...\n")
 
