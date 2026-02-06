@@ -116,18 +116,19 @@ def processar_ia(texto_bruto):
     if not texto_bruto: return None
 
     prompt = f"""
-    Você é um sistema que gera APENAS código HTML.
-    Analise os dados e encontre oportunidades de Física Médica.
+    Você é um Assistente do HCPA. Analise os dados e encontre oportunidades de Física Médica.
+    PARA CADA ITEM, ENCONTRE O PRAZO (OBRIGATÓRIO).
     
-    REGRAS RÍGIDAS:
-    1. NÃO ESCREVA NENHUMA INTRODUÇÃO (como "Aqui estão os resultados").
-    2. NÃO ESCREVA NENHUMA CONCLUSÃO.
-    3. COMECE DIRETAMENTE COM A TAG <h3>.
-    4. RETORNE APENAS O CÓDIGO HTML DOS ITENS.
-    
-    ESTRUTURA:
-    <h3>TEMA</h3>
+    FORMATO HTML (LIMPO, sem <html>):
+    Agrupe por temas (ex: <h3>Editais</h3>).
+    Não escreva introduções ou conclusões
+    Use esta estrutura para CADA item:
     <li>
+        <a href="LINK">ACESSAR ➜</a>
+        <strong>TÍTULO</strong>
+        <span class="resumo">Resumo curto.</span><br>
+        <span class="prazo">📅 Prazo: DATA</span>
+    </li>
         <a href="LINK">ACESSAR ➜</a>
         <strong>TÍTULO</strong>
         <span class="resumo">Resumo curto.</span><br>
