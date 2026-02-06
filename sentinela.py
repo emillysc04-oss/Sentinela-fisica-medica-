@@ -46,7 +46,7 @@ def notificar_erro_admin(erro_msg):
     server.quit()
 
 def buscar_google_elite():
-    query_base = '(edital OR chamada OR "call for papers" OR bolsa OR grant) ("física médica" OR radioterapia OR "medical physics")'
+    query_base = '(edital OR chamada OR "call for papers" OR bolsa OR grant OR congresso OR jornada OR simposio OR workshop OR meeting) ("física médica" OR radioterapia OR "medical physics")'    
     url = "https://google.serper.dev/search"
     headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
     
@@ -116,19 +116,14 @@ def processar_ia(texto_bruto):
     if not texto_bruto: return None
 
     prompt = f"""
-    Você é um Assistente do HCPA. Analise os dados e encontre oportunidades de Física Médica.
-    PARA CADA ITEM, ENCONTRE O PRAZO (OBRIGATÓRIO).
+    Você é um Assistente do HCPA. nalise os dados e encontre OPORTUNIDADES (Editais, Bolsas) e EVENTOS (Congressos, Jornadas, Simpósios) de Física Médica.
+    PARA CADA ITEM, ENCONTRE O PRAZO DE INSCRIÇÃO (OBRIGATÓRIO).
     
     FORMATO HTML (LIMPO, sem <html>):
-    Agrupe por temas (ex: <h3>Editais</h3>).
+    AGRUPE POR TEMAS (ex: <h3>Editais e Bolsas</h3>, <h3>Congressos e Eventos</h3>).
     Não escreva introduções ou conclusões
     Use esta estrutura para CADA item:
     <li>
-        <a href="LINK">ACESSAR ➜</a>
-        <strong>TÍTULO</strong>
-        <span class="resumo">Resumo curto.</span><br>
-        <span class="prazo">📅 Prazo: DATA</span>
-    </li>
         <a href="LINK">ACESSAR ➜</a>
         <strong>TÍTULO</strong>
         <span class="resumo">Resumo curto.</span><br>
