@@ -8,7 +8,6 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
-# --- CONFIGURAÇÕES ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE", "").strip()
@@ -16,7 +15,6 @@ SENHA_APP = os.getenv("SENHA_APP", "").strip()
 GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
 LOGO_URL = "https://raw.githubusercontent.com/emillysc04-oss/Sentinela-3.0/main/Logo3.png"
 
-# Lista de Sites
 SITES_ALVO = [
     "site:gov.br", "site:edu.br", "site:org.br", "site:b.br",
     "site:fapergs.rs.gov.br", "site:hcpa.edu.br", "site:ufrgs.br", "site:ufcspa.edu.br",
@@ -33,29 +31,23 @@ SITES_ALVO = [
 ]
 
 def notificar_erro_admin(erro_msg):
-    """Envia um e-mail de alerta para você caso o sistema falhe."""
-    print(f"❌ ERRO CRÍTICO: {erro_msg}. Notificando admin...")
     msg = MIMEMultipart()
     msg['From'] = EMAIL_REMETENTE
-    msg['To'] = EMAIL_REMETENTE # Envia para você mesma
-    msg['Subject'] = f"🚨 FALHA NO SENTINELA - {datetime.now().strftime('%d/%m')}"
+    msg['To'] = EMAIL_REMETENTE
+    msg['Subject'] = f"FALHA NO SENTINELA - {datetime.now().strftime('%d/%m')}"
     
     corpo = f"""
-    <h3>Ocorreu um erro na execução do Sentinela</h3>
-    <p>O sistema não conseguiu enviar os e-mails para a lista.</p>
     <p><strong>Erro detalhado:</strong> {erro_msg}</p>
     """
     msg.attach(MIMEText(corpo, 'html'))
 
-    try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(EMAIL_REMETENTE, SENHA_APP)
-        server.sendmail(EMAIL_REMETENTE, EMAIL_REMETENTE, msg.as_string())
-        server.quit()
-    except:
-        pass # Se falhar o envio de erro, não há muito o que fazer.
 
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.starttls()
+    server.login(EMAIL_REMETENTE, SENHA_APP)
+    server.sendmail(EMAIL_REMETENTE, EMAIL_REMETENTE, msg.as_string())
+    server.quit()
+   
 def buscar_google_elite():
     query_base = '(edital OR chamada OR "call for papers" OR bolsa OR grant) ("física médica" OR radioterapia OR "medical physics")'
     url = "https://google.serper.dev/search"
@@ -70,21 +62,17 @@ def buscar_google_elite():
         query_final = f"{query_base} ({filtro_sites})"
         payload = json.dumps({"q": query_final, "tbs": "qdr:m", "gl": "br"})
         
-        try:
-            response = requests.post(url, headers=headers, data=payload)
-            items = response.json().get("organic", [])
-            for item in items:
-                resultados.append(f"- Título: {item.get('title')}\n  Link: {item.get('link')}\n  Snippet: {item.get('snippet')}\n")
-            time.sleep(0.5)
-        except:
-            continue
+        response = requests.post(url, headers=headers, data=payload)
+        items = response.json().get("organic", [])
+        for item in items:
+            resultados.append(f"- Título: {item.get('title')}\n  Link: {item.get('link')}\n  Snippet: {item.get('snippet')}\n")
+        time.sleep(0.5)
             
     return "\n".join(resultados)
 
 def formatar_html(conteudo_ia):
     if not conteudo_ia: return None
     
-    # CSS EXATO QUE VOCÊ ENVIOU
     estilos_css = """
         body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .container { max-width: 600px; margin: 0 auto; padding: 10px; }
@@ -113,7 +101,7 @@ def formatar_html(conteudo_ia):
             <div class="header-content">
                 <img src="{LOGO_URL}" alt="HCPA" class="logo">
                 <h1 class="title">Sistema de monitoramento Sentinela</h1>
-                <div class="subtitle">Editais de Pesquisa</div>
+                <div class="subtitle">Editais de Física Médica</div>
             </div>
             <div class="header-bar"></div>
             <div class="content">{conteudo_ia}</div>
@@ -127,9 +115,7 @@ def formatar_html(conteudo_ia):
     </html>
     """
 
-def processar_ia(texto_bruto):
-    if not texto_bruto: return None
-    
+def processar_ia(texto_bruto):    
     prompt = f"""
     Você é um Assistente do HCPA. Analise os dados e encontre oportunidades de Física Médica.
     PARA CADA ITEM, ENCONTRE O PRAZO (OBRIGATÓRIO).
@@ -143,69 +129,49 @@ def processar_ia(texto_bruto):
         <span class="resumo">Resumo curto.</span><br>
         <span class="prazo">📅 Prazo: DATA</span>
     </li>
-    Se sem data: <span class="prazo">⚠️ Prazo: Verificar Edital</span>
     DADOS: {texto_bruto}
     """
     
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
-    try:
-        resp = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, headers={'Content-Type': 'application/json'})
-        if resp.status_code == 200:
-            raw_text = resp.json()['candidates'][0]['content']['parts'][0]['text']
-            return formatar_html(raw_text.replace("```html", "").replace("```", ""))
-        else:
-            raise Exception(f"Erro Gemini: {resp.text}")
-    except Exception as e:
-        raise e
+
+    resp = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, headers={'Content-Type': 'application/json'})
+        raw_text = resp.json()['candidates'][0]['content']['parts'][0]['text']
+        return formatar_html(raw_text.replace("```html", "").replace("```", ""))
 
 def obter_emails():
-    if not GOOGLE_CREDENTIALS: return [EMAIL_REMETENTE]
     lista = [EMAIL_REMETENTE]
-    try:
-        gc = gspread.service_account_from_dict(json.loads(GOOGLE_CREDENTIALS))
-        raw = gc.open("Sentinela Emails").sheet1.col_values(3)
-        for e in raw:
-            if "@" in e and "email" not in e.lower() and e.strip() not in lista:
-                lista.append(e.strip())
-        return lista
-    except:
-        return lista # Retorna pelo menos o admin se a planilha falhar
-
+    gc = gspread.service_account_from_dict(json.loads(GOOGLE_CREDENTIALS))
+    raw = gc.open("Sentinela Emails").sheet1.col_values(3)
+    for e in raw:
+        
+            lista.append(e.strip())
+    return lista
+   
 def enviar(html, destinos):
-    try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(EMAIL_REMETENTE, SENHA_APP)
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.starttls()
+    server.login(EMAIL_REMETENTE, SENHA_APP)
         
-        for email in destinos:
-            msg = MIMEMultipart()
-            msg['From'] = EMAIL_REMETENTE
-            msg['To'] = email
-            msg['Subject'] = f"Sentinela Física Médica - {datetime.now().strftime('%d/%m')}"
-            msg.attach(MIMEText(html, 'html'))
-            server.sendmail(EMAIL_REMETENTE, email, msg.as_string())
-            print(f"📤 Enviado: {email}")
+    for email in destinos:
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_REMETENTE
+        msg['To'] = email
+        msg['Subject'] = f"Sentinela Física Médica - {datetime.now().strftime('%d/%m')}"
+        msg.attach(MIMEText(html, 'html'))
+        server.sendmail(EMAIL_REMETENTE, email, msg.as_string())
+        print(f"📤 Enviado: {email}")
             
-        server.quit()
-    except Exception as e:
-        raise e
-
+    server.quit()
+    
 if __name__ == "__main__":
-    print("🚀 Sentinela Iniciado.")
     try:
-        # 1. Busca
         dados = buscar_google_elite()
-        if not dados: raise Exception("Nenhum dado encontrado no Google Search.")
         
-        # 2. IA e Layout
         email_html = processar_ia(dados)
         
-        # 3. Lista de Emails
         destinatarios = obter_emails()
         
-        # 4. Envio
         enviar(email_html, destinatarios)
-        print("🏁 Finalizado com sucesso.")
         
     except Exception as e:
         notificar_erro_admin(str(e))
