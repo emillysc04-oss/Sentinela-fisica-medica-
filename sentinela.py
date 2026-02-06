@@ -116,7 +116,7 @@ def processar_ia(texto_bruto):
     if not texto_bruto: return None
 
     prompt = f"""
-    Você é um Assistente do HCPA. nalise os dados e encontre OPORTUNIDADES (Editais, Bolsas) e EVENTOS (Congressos, Jornadas, Simpósios) de Física Médica.
+    Você é um Assistente do HCPA. Analise os dados e encontre OPORTUNIDADES (Editais, Bolsas) e EVENTOS (Congressos, Jornadas, Simpósios) de Física Médica.
     PARA CADA ITEM, ENCONTRE O PRAZO DE INSCRIÇÃO (OBRIGATÓRIO).
     
     FORMATO HTML (LIMPO, sem <html>):
