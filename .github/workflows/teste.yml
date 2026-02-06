@@ -1,9 +1,9 @@
 name: Rodar Sentinela
 
 on: 
-  workflow_dispatch:      # Botão manual
+  workflow_dispatch:   
   schedule:
-    - cron: '30 9 * * *'  # Roda toda segunda-feira às 10h (UTC)
+    - cron: '30 9 * * *' 
 
 jobs:
   executar:
