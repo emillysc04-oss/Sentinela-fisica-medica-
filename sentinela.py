@@ -30,22 +30,7 @@ SITES_ALVO = [
     "site:einstein.br", "site:hospitalsiriolibanes.org.br", "site:moinhosdevento.org.br"
 ]
 
-def notificar_erro_admin(erro_msg):
-    msg = MIMEMultipart()
-    msg['From'] = EMAIL_REMETENTE
-    msg['To'] = EMAIL_REMETENTE
-    msg['Subject'] = f"FALHA NO SENTINELA - {datetime.now().strftime('%d/%m')}"
-    
-    corpo = f"<p><strong>Erro detalhado:</strong> {erro_msg}</p>"
-    msg.attach(MIMEText(corpo, 'html'))
-
-    server = smtplib.SMTP('smtp.gmail.com', 587)
-    server.starttls()
-    server.login(EMAIL_REMETENTE, SENHA_APP)
-    server.sendmail(EMAIL_REMETENTE, EMAIL_REMETENTE, msg.as_string())
-    server.quit()
-
-def buscar_google_elite():
+def buscar_google():
     query_base = '(edital OR chamada OR "call for papers" OR bolsa OR grant OR congresso OR jornada OR simposio OR workshop OR meeting) ("física médica" OR radioterapia OR "medical physics")'    
     url = "https://google.serper.dev/search"
     headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
@@ -68,7 +53,6 @@ def buscar_google_elite():
     return "\n".join(resultados)
 
 def formatar_html(conteudo_ia):
-    if not conteudo_ia: return None
     
     estilos_css = """
         body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -116,8 +100,8 @@ def processar_ia(texto_bruto):
     if not texto_bruto: return None
 
     prompt = f"""
-    Você é um Assistente do HCPA. Analise os dados e Formate as oportunidades (Editais, Bolsas) e EVENTOS (Congressos, Jornadas, Simpósios) de Física Médica.
-    PARA CADA ITEM, ENCONTRE O PRAZO DE INSCRIÇÃO (OBRIGATÓRIO).
+    Você é um Assistente do HCPA. Analise os dados e Formate as oportunidades (Editais, Bolsas) e eventos (Congressos, Jornadas, Simpósios) de Física Médica.
+    Para cada item, encontre o prazo de inscrição
     
     FORMATO HTML (LIMPO, sem <html>):
     AGRUPE POR TEMAS (ex: <h3>Editais e Bolsas</h3>, <h3>Congressos e Eventos</h3>).
@@ -165,13 +149,13 @@ def enviar(html, destinos):
         msg['Subject'] = f"Sentinela Física Médica - {datetime.now().strftime('%d/%m')}"
         msg.attach(MIMEText(html, 'html'))
         server.sendmail(EMAIL_REMETENTE, email, msg.as_string())
-        print(f"📤 Enviado: {email}")
+        print(f"Enviado: {email}")
             
     server.quit()
     
 if __name__ == "__main__":
     try:
-        dados = buscar_google_elite()
+        dados = buscar_google()
         email_html = processar_ia(dados)
         destinatarios = obter_emails()
         enviar(email_html, destinatarios)
